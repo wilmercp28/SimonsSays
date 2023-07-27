@@ -1,6 +1,9 @@
 package com.example.simonssays
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.os.CountDownTimer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -33,6 +36,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
@@ -40,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.compose.rememberNavController
 import com.example.simonssays.ui.theme.SimonsSaysTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +59,8 @@ class MainActivity : ComponentActivity() {
     private var isPlayerTurn by mutableStateOf(false)
     private var level by mutableStateOf(1)
     private var playerLost by mutableStateOf(false)
+    var existingTimer: CountDownTimer? = null
+    var timer by mutableStateOf(10)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -65,7 +72,7 @@ class MainActivity : ComponentActivity() {
                         .fillMaxSize()
                 ) {
                     val boxColors = remember { mutableStateListOf<Color>() }
-                    repeat(9) { index ->
+                    repeat(9) {
                         boxColors.add(Color.Green)
                     }
                     if (playerLost){
@@ -76,6 +83,8 @@ class MainActivity : ComponentActivity() {
                     }
                     LaunchedEffect(true) {
                         SimonsSaysActions(boxColors)
+
+
                     }
                     }
 
@@ -83,7 +92,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
+
 }
+    fun restartGame() {
+        timer = 11
+        isPlayerTurn = false
+        playerLost = false
+        level = 1
+        // Clear any other variables or state you need to reset for the game.
+        simonSequence.clear()
+        startCountdownTimer()
+    }
 
     @Preview
     @Composable
@@ -113,6 +133,7 @@ class MainActivity : ComponentActivity() {
         repeat(9) { index ->
             boxColors.add(Color.Green)
         }
+        var clickCounter by remember { mutableStateOf(0) }
         val playerSequence = remember { mutableStateListOf<Pair<Int, Int>>() }
         Column(
             modifier = Modifier
@@ -140,7 +161,7 @@ class MainActivity : ComponentActivity() {
 
             }
             Spacer(modifier = Modifier.size(100.dp))
-            var clickCounter by remember { mutableStateOf(0) }
+
             for (x in 0 until 3) {
                 Row(
                     horizontalArrangement = Arrangement.Center
@@ -164,15 +185,45 @@ class MainActivity : ComponentActivity() {
                                             clickCounter = 0
                                         }
                                     }
-
                                 }
                         )
-
                     }
                 }
             }
+            Box(
+                modifier = Modifier
+                    .background(Color.Green, shape = RoundedCornerShape(20.dp))
+                    .size(width = 300.dp, height = 100.dp)
+                    .border(5.dp, Color.Black, shape = RoundedCornerShape(20.dp)),
+                contentAlignment = Alignment.Center
+            ){
+                Text(text = "$timer",
+                fontSize = 50.sp)
+
+                
+            }
         }
     }
+
+    fun startCountdownTimer(
+    ) {
+        // Cancel the existing timer if it's running
+        existingTimer?.cancel()
+
+        // Start a new countdown timer
+        existingTimer = object : CountDownTimer((timer * 1000).toLong(), 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                timer = (millisUntilFinished / 1000).toInt()
+            }
+
+            override fun onFinish() {
+                timer = 10
+                isPlayerTurn = false
+                playerLost = true
+            }
+        }.start()
+    }
+
     @Preview
     @Composable
     fun losingScreen() {
@@ -180,37 +231,77 @@ class MainActivity : ComponentActivity() {
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White),
-
-            ) {
-
+        ) {
         }
-        Box(
+        Column(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ){
+            Arrangement.Center,
+            Alignment.CenterHorizontally
+
+        ) {
+
             Box(
                 modifier = Modifier
                     .size(width = 300.dp, height = 100.dp)
                     .background(Color.Green, shape = RoundedCornerShape(20.dp))
                     .border(5.dp, Color.Black, shape = RoundedCornerShape(20.dp))
+                    .clickable {
+                        restartGame()
+                    },
+                contentAlignment = Alignment.Center
 
-                ){
-                Text(text = "Restar")
+            ) {
+                Text(
+                    text = "Restart",
+                    fontSize = 50.sp
+                )
+            }
+            Spacer(modifier = Modifier.size(40.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(width = 150.dp, height = 50.dp)
+                    .background(Color.Green, shape = RoundedCornerShape(20.dp))
+                    .border(5.dp, Color.Black, shape = RoundedCornerShape(20.dp))
+                    .clickable {
+                        ChangeScreen(this@MainActivity)
+
+                    },
+                contentAlignment = Alignment.Center
+
+            ) {
+                Text(
+                    text = "Main Menu",
+                    fontSize = 20.sp
+                )
+
             }
         }
     }
+
+    fun ChangeScreen(context: Context){
+        val intent = Intent(context, MainMenu::class.java)
+        context.startActivity(intent)
+
+    }
+
 
     fun checkForWinner(
         simonSequence: MutableList<Pair<Int, Int>>,
         playerSequence: SnapshotStateList<Pair<Int, Int>>,
         boxColors: MutableList<Color>
     ) {
+
         if (simonSequence.equals(playerSequence)){
             simonSequence.clear()
             playerSequence.clear()
             level++
+            if (level % 2 == 0) {
+                timer += 2
+            }
+            existingTimer?.cancel()
             CoroutineScope(Dispatchers.Main).launch {
-                delay(200)
+                delay(300)
             SimonsSaysActions(boxColors)
             }
         } else {
@@ -228,12 +319,17 @@ class MainActivity : ComponentActivity() {
                 val newColumn = Random.nextInt(3)
                 ChangeBoxColor(boxColors, newRow, newColumn)
                 simonSequence.add(Pair(newRow, newColumn)) // Add the random click to the generated sequence
-delay(200)
+delay(600)
             }
             isPlayerTurn = true
+            existingTimer?.cancel()
+            timer = 10
+            startCountdownTimer()
+
             //Remove after testing
             printSimonSequence(simonSequence)
         }
+
 
     }
 
@@ -251,7 +347,7 @@ delay(200)
 
         // Use a coroutine to delay the color change back to green after 1 second
         CoroutineScope(Dispatchers.Main).launch {
-            delay(200)
+            delay(400)
             boxColors[index] = Color.Green // Change the color back to green after the delay
         }
     }
